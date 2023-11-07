@@ -25,10 +25,83 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     const foodsCollection = client.db("foodSurplusSaverA11").collection("foods");
-    
 
-    // Send a ping to confirm a successful connection
-    // await client.db("admin").command({ ping: 1 });
+
+    // =======foods========
+    //  Create a new food item
+    app.post("/foods", async (req, res) => {
+      const food = req.body;
+      // 'foodName', 'foodImgURL', 'quantity', 'location', 'expireDate', 'description', 'donatorName', 'donatorEmail', 'donatorImageURL', 'status'
+      const newFood = {
+        foodName: food.foodName || '',
+        foodImgURL: food.foodImgURL || '',
+        quantity: food.quantity || '',
+        location: food.location || '',
+        expireDate: food.expireDate || '',
+        donatorName: food.donatorName || '',
+        donatorImageURL: food.donatorImageURL || '',
+        donatorEmail: food.donatorEmail || '',
+        description: food.description || '',
+        status: food.status || '',
+        createdAt: new Date(),
+      };
+
+      try {
+        const result = await foodsCollection.insertOne(newFood);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+    });
+
+    // get all foods items
+    app.get("/foods", async (req, res) => {
+      try {
+        const cursor = foodsCollection.find({});
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+    });
+
+    // upadate a food item
+    app.put("/foods/:id", async (req, res) => {
+      const id = req.params.id;
+      
+      if (id.length < 24) {
+        res.status(400).send("Invalid ID");
+        return;
+      }
+
+      const updatedFood = req.body;
+      try {
+        const filter = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: {
+            foodName: updatedFood.foodName,
+            foodImgURL: updatedFood.foodImgURL,
+            quantity: updatedFood.quantity,
+            location: updatedFood.location,
+            expireDate: updatedFood.expireDate,
+            donatorName: updatedFood.donatorName,
+            donatorImageURL: updatedFood.donatorImageURL,
+            donatorEmail: updatedFood.donatorEmail,
+            description: updatedFood.description,
+            status: updatedFood.status,
+          },
+        };
+        const result = await foodsCollection.updateOne(
+          filter,
+          updateDoc,
+        );
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+    });
+
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );

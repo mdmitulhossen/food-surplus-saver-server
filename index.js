@@ -155,6 +155,20 @@ async function run() {
       }
     });
 
+
+    // ========feature food item=========
+
+    // get featured foods items
+    app.get("/featuredFoods", async (req, res) => {
+      try {
+        const cursor = foodsCollection.find({}).limit(6).sort({ quantity: -1 });
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );

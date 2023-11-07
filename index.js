@@ -95,7 +95,17 @@ async function run() {
 
     // get all foods items
     app.get("/foods", async (req, res) => {
+      const query = req.query;
+      console.log(query)
       try {
+
+        if(query.email){
+          const cursor = foodsCollection.find({donatorEmail: query.email});
+          const result = await cursor.toArray();
+          res.send(result);
+          return;
+        }
+        
         const cursor = foodsCollection.find({});
         const result = await cursor.toArray();
         res.send(result);
@@ -104,7 +114,7 @@ async function run() {
       }
     });
 
-    // upadate a food item
+    // update a food item
     app.put("/foods/:id", async (req, res) => {
       const id = req.params.id;
 

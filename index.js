@@ -25,13 +25,13 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     const foodsCollection = client.db("foodSurplusSaverA11").collection("foods");
+    const foodRequestsCollection = client.db("foodSurplusSaverA11").collection("foodRequests");
 
 
     // =======foods========
     //  Create a new food item
     app.post("/foods", async (req, res) => {
       const food = req.body;
-      // 'foodName', 'foodImgURL', 'quantity', 'location', 'expireDate', 'description', 'donatorName', 'donatorEmail', 'donatorImageURL', 'status'
       const newFood = {
         foodName: food.foodName || '',
         foodImgURL: food.foodImgURL || '',
@@ -117,6 +117,43 @@ async function run() {
       }
     });
 
+
+
+    // =======foods Request========
+
+    //  Create a new food request item
+    app.post("/foodRequests", async (req, res) => {
+      const foodRequest = req.body;
+      // foodID,requestedDate,expireDate,requesterName,requesterImageURL,requesterEmail,requesterMessage,status
+      const newFoodRequest = {
+        foodID: foodRequest.foodID || '',
+        requestedDate: new Date(),
+        expireDate: foodRequest.expireDate || '',
+        requesterName: foodRequest.requesterName || '',
+        requesterImageURL: foodRequest.requesterImageURL || '',
+        requesterEmail: foodRequest.requesterEmail || '',
+        requesterMessage: foodRequest.requesterMessage || '',
+        status: foodRequest.status || '',
+      };
+
+      try {
+        const result = await foodRequestsCollection.insertOne(newFoodRequest);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+    });
+
+    // get all foodRequests items
+    app.get("/foodRequests", async (req, res) => {
+      try {
+        const cursor = foodRequestsCollection.find({});
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+    });
 
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"

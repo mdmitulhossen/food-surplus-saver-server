@@ -117,6 +117,29 @@ async function run() {
       }
     });
 
+    // =====sort and Search food items==========
+
+    app.get("/foods/sort/:sortMethod", async (req, res) => {
+      const sortMethod = req.params.sortMethod;
+      try {
+        if(sortMethod === 'expireDate') {
+          const cursor = foodsCollection.find({}).sort({expireDate: 1 });
+          const result = await cursor.toArray();
+          res.send(result);
+          return;
+        }
+        else{
+          const cursor = foodsCollection.find({});
+          const result = await cursor.toArray();
+          res.send(result);
+          return;
+        }
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+           
+    });
+
 
 
     // =======foods Request========

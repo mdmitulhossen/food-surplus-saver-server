@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 // config
@@ -27,6 +28,17 @@ async function run() {
     const foodsCollection = client.db("foodSurplusSaverA11").collection("foods");
     const foodRequestsCollection = client.db("foodSurplusSaverA11").collection("foodRequests");
 
+
+    // Secure routes
+    // auth
+    app.post('/jwt',async(req,res)=>{
+      const user = req.body;
+      const token = jwt.sign(user,process.env.SECRET_KEY,{expiresIn:'1h'});
+
+      res
+      .cookie('token',token,{httpOnly:true,secure:false})
+      .send({success:true})
+    })
 
     // =======foods========
     //  Create a new food item
@@ -122,13 +134,13 @@ async function run() {
     app.get("/foods/sort/:sortMethod", async (req, res) => {
       const sortMethod = req.params.sortMethod;
       try {
-        if(sortMethod === 'expireDate') {
-          const cursor = foodsCollection.find({}).sort({expireDate: 1 });
+        if (sortMethod === 'expireDate') {
+          const cursor = foodsCollection.find({}).sort({ expireDate: 1 });
           const result = await cursor.toArray();
           res.send(result);
           return;
         }
-        else{
+        else {
           const cursor = foodsCollection.find({});
           const result = await cursor.toArray();
           res.send(result);
@@ -137,7 +149,7 @@ async function run() {
       } catch (error) {
         res.status(500).send({ message: error.message });
       }
-           
+
     });
 
 

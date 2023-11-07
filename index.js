@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 // config
@@ -11,6 +12,27 @@ const port = process.env.PORT || 3000;
 // middleware
 app.use(express.json());
 app.use(cors());
+app.use(cookieParser()); 
+
+
+// middleware
+const verfiyToken = (req, res, next) => {
+  const token = req.cookies.token;
+  console.log(token)
+  if (!token) {
+    return res.status(401).send('Access Denied');
+  }
+
+  jwt.verify(token, secretkey, (err, decode) => {
+    if (err) {
+      console.log(err)
+      return res.status(401).send('Access Denied');
+    }
+    req.user = decode;
+    next();
+  })
+
+}
 
 const uri = `mongodb+srv://${process.env.MONGODB_USER}:${process.env.MONGODB_PASSWORD}@cluster0.50udlth.mongodb.net/?retryWrites=true&w=majority`;
 
@@ -31,13 +53,13 @@ async function run() {
 
     // Secure routes
     // auth
-    app.post('/jwt',async(req,res)=>{
+    app.post('/jwt', async (req, res) => {
       const user = req.body;
-      const token = jwt.sign(user,process.env.SECRET_KEY,{expiresIn:'1h'});
+      const token = jwt.sign(user, process.env.SECRET_KEY, { expiresIn: '1h' });
 
       res
-      .cookie('token',token,{httpOnly:true,secure:false})
-      .send({success:true})
+        .cookie('token', token, { httpOnly: true, secure: false })
+        .send({ success: true })
     })
 
     // =======foods========

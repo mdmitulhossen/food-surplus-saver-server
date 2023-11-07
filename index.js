@@ -68,7 +68,7 @@ async function run() {
     // upadate a food item
     app.put("/foods/:id", async (req, res) => {
       const id = req.params.id;
-      
+
       if (id.length < 24) {
         res.status(400).send("Invalid ID");
         return;
@@ -95,6 +95,22 @@ async function run() {
           filter,
           updateDoc,
         );
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+    });
+
+    // Delete a single food item
+    app.delete("/foods/:id", async (req, res) => {
+      const id = req.params.id;
+      if (id.length < 24) {
+        res.status(400).send("Invalid ID");
+        return;
+      }
+      try {
+        const query = { _id: new ObjectId(id) };
+        const result = await foodsCollection.deleteOne(query);
         res.send(result);
       } catch (error) {
         res.status(500).send({ message: error.message });

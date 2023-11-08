@@ -17,7 +17,7 @@ app.use(cors({
   ],
   credentials: true,
 }));
-app.use(cookieParser()); 
+app.use(cookieParser());
 
 
 // middleware
@@ -54,6 +54,7 @@ async function run() {
   try {
     const foodsCollection = client.db("foodSurplusSaverA11").collection("foods");
     const foodRequestsCollection = client.db("foodSurplusSaverA11").collection("foodRequests");
+    const myFoodRequestsCollection = client.db("foodSurplusSaverA11").collection("myFoodRequests");
 
 
     // Secure routes
@@ -99,8 +100,8 @@ async function run() {
       // console.log(query)
       try {
 
-        if(query.email){
-          const cursor = foodsCollection.find({donatorEmail: query.email});
+        if (query.email) {
+          const cursor = foodsCollection.find({ donatorEmail: query.email });
           const result = await cursor.toArray();
           res.send(result);
           return;
@@ -166,6 +167,43 @@ async function run() {
       }
     });
 
+
+    // update a food item with patch
+    app.patch("/foods/:id", async (req, res) => {
+      const id = req.params.id;
+      console.log('patch1')
+      if (id.length < 24) {
+        res.status(400).send("Invalid ID");
+        return;
+      }
+
+      const updatedFood = req.body;
+      try {
+        const filter = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: {
+            // foodName: updatedFood.foodName,
+            // foodImgURL: updatedFood.foodImgURL,
+            // quantity: updatedFood.quantity,
+            // location: updatedFood.location,
+            // expireDate: updatedFood.expireDate,
+            // donatorName: updatedFood.donatorName,
+            // donatorImageURL: updatedFood.donatorImageURL,
+            // donatorEmail: updatedFood.donatorEmail,
+            // description: updatedFood.description,
+            status: updatedFood.status,
+          },
+        };
+        const result = await foodsCollection.updateOne(
+          filter,
+          updateDoc,
+        );
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+    });
+
     // Delete a single food item
     app.delete("/foods/:id", async (req, res) => {
       const id = req.params.id;
@@ -213,15 +251,21 @@ async function run() {
     app.post("/foodRequests", async (req, res) => {
       const foodRequest = req.body;
       // foodID,requestedDate,expireDate,requesterName,requesterImageURL,requesterEmail,requesterMessage,status
+      if (foodRequest.foodID.length < 24) {
+        res.status(400).send("Invalid ID");
+        return;
+      }
+
       const newFoodRequest = {
-        foodID: foodRequest.foodID || '',
+        foodID: new ObjectId(foodRequest.foodID) || '',
         requestedDate: new Date(),
         expireDate: foodRequest.expireDate || '',
         requesterName: foodRequest.requesterName || '',
         requesterImageURL: foodRequest.requesterImageURL || '',
         requesterEmail: foodRequest.requesterEmail || '',
         requesterMessage: foodRequest.requesterMessage || '',
-        status: foodRequest.status || '',
+        donationMoney: foodRequest.donationMoney || '',
+        status: foodRequest.status || 'pending',
       };
 
       try {
@@ -234,16 +278,31 @@ async function run() {
 
     // get all foodRequests items
     app.get("/foodRequests", async (req, res) => {
-      const queryId = req.query.id;
+      const query = req.query;
       try {
-        if(queryId){
-          const cursor = foodRequestsCollection.find({foodID: queryId});
+        if (query.id) {
+          const cursor = foodRequestsCollection.find({ foodID: query.id });
           const result = await cursor.toArray();
           res.send(result);
           return;
         }
-        else{
-          res.status(400).send("Invalid ID");
+        else if (query.email) {
+          const cursor = foodRequestsCollection.aggregate([
+            {
+              $lookup: {
+                from: 'foods',
+                localField: 'foodID', 
+                foreignField: '_id',
+                as: 'food'
+              }
+            }
+          ])
+          const result = await cursor.toArray();
+          res.send(result);
+          return;
+        }
+        else {
+          res.status(400).send("Invalid query");
         }
         // const cursor = foodRequestsCollection.find({});
         // const result = await cursor.toArray();
@@ -252,6 +311,60 @@ async function run() {
         res.status(500).send({ message: error.message });
       }
     });
+
+    // update a food request item
+    app.patch("/foodRequests/:id", async (req, res) => {
+      const id = req.params.id;
+      console.log('patch5')
+      if (id.length < 24) {
+        res.status(400).send("Invalid ID");
+        return;
+      }
+
+      const updatedFoodRequest = req.body;
+      console.log(updatedFoodRequest)
+      try {
+        const filter = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: {
+            // foodID: updatedFoodRequest.foodID,
+            // requestedDate: updatedFoodRequest.requestedDate,
+            // expireDate: updatedFoodRequest.expireDate,
+            // requesterName: updatedFoodRequest.requesterName,
+            // requesterImageURL: updatedFoodRequest.requesterImageURL,
+            // requesterEmail: updatedFoodRequest.requesterEmail,
+            // requesterMessage: updatedFoodRequest.requesterMessage,
+            status: updatedFoodRequest.status,
+          },
+        };
+        const result = await foodRequestsCollection.updateOne(
+          filter,
+          updateDoc,
+        );
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+
+    })
+
+    // Delete a single food request item
+    app.delete("/foodRequests/:id", async (req, res) => {
+      const id = req.params.id;
+      if (id.length < 24) {
+        res.status(400).send("Invalid ID");
+        return;
+      }
+      try {
+        const query = { _id: new ObjectId(id) };
+        const result = await foodRequestsCollection.deleteOne(query);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+     
+    })
+
 
 
     // ========feature food item=========
@@ -266,6 +379,57 @@ async function run() {
         res.status(500).send({ message: error.message });
       }
     });
+
+
+    // ========my food requests=========
+
+    // my food requests
+    app.get("/myFoodRequests", async (req, res) => {
+      const query = req.query;
+      console.log(query)
+      try {
+
+        if (query.email) {
+          const cursor = myFoodRequestsCollection.find({ requesterEmail: query.email });
+          const result = await cursor.toArray();
+          res.send(result);
+          return;
+        }
+
+        const cursor = myFoodRequestsCollection.find({});
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+    })
+
+    // Create a new my food request item
+    app.post("/myFoodRequests", async (req, res) => {
+      const myFoodRequest = req.body;
+      // foodID', 'foodName', 'foodImgURL', 'donatorName', 'donatorEmail', 'userEmail', 'requestedDate', 'location', 'expireDate', 'donationMoney', 'userMessge', 'userMessage
+      const newMyFoodRequest = {
+        foodID: myFoodRequest.foodID || '',
+        foodName: myFoodRequest.foodName || '',
+        foodImgURL: myFoodRequest.foodImgURL || '',
+        donatorName: myFoodRequest.donatorName || '',
+        donatorEmail: myFoodRequest.donatorEmail || '',
+        userEmail: myFoodRequest.userEmail || '',
+        requestedDate: new Date(),
+        location: myFoodRequest.location || '',
+        expireDate: myFoodRequest.expireDate || '',
+        donationMoney: myFoodRequest.donationMoney || '',
+        userMessage: myFoodRequest.userMessage || '',
+      };
+
+      try {
+        const result = await myFoodRequestsCollection.insertOne(newMyFoodRequest);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+    });
+
 
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"

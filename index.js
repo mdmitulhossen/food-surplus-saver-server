@@ -14,6 +14,7 @@ app.use(express.json());
 app.use(cors({
   origin: [
     'http://localhost:5173',
+    'https://food-surplus-saver.web.app'
   ],
   credentials: true,
 }));
@@ -54,7 +55,6 @@ async function run() {
   try {
     const foodsCollection = client.db("foodSurplusSaverA11").collection("foods");
     const foodRequestsCollection = client.db("foodSurplusSaverA11").collection("foodRequests");
-    const myFoodRequestsCollection = client.db("foodSurplusSaverA11").collection("myFoodRequests");
 
 
     // Secure routes
@@ -82,7 +82,7 @@ async function run() {
         donatorImageURL: food.donatorImageURL || '',
         donatorEmail: food.donatorEmail || '',
         description: food.description || '',
-        status: food.status || '',
+        status: food.status?.toLowerCase() || '',
         createdAt: new Date(),
       };
 
@@ -102,6 +102,12 @@ async function run() {
 
         if (query.email) {
           const cursor = foodsCollection.find({ donatorEmail: query.email });
+          const result = await cursor.toArray();
+          res.send(result);
+          return;
+        }
+        if (query.status) {
+          const cursor = foodsCollection.find({ status: 'available' });
           const result = await cursor.toArray();
           res.send(result);
           return;
@@ -281,7 +287,7 @@ async function run() {
       const query = req.query;
       try {
         if (query.id) {
-          const cursor = foodRequestsCollection.find({ foodID: query.id });
+          const cursor = foodRequestsCollection.find({ foodID: new ObjectId(query.id) });
           const result = await cursor.toArray();
           res.send(result);
           return;
@@ -291,7 +297,7 @@ async function run() {
             {
               $lookup: {
                 from: 'foods',
-                localField: 'foodID', 
+                localField: 'foodID',
                 foreignField: '_id',
                 as: 'food'
               }
@@ -356,13 +362,18 @@ async function run() {
         return;
       }
       try {
+        const cursor = await foodRequestsCollection.findOne({ _id: new ObjectId(id) });
+        if (cursor?.status?.toLowerCase() === 'delivered') {
+          res.status(400).send("You can't delete this .already delivered");
+          return;
+        }
         const query = { _id: new ObjectId(id) };
         const result = await foodRequestsCollection.deleteOne(query);
         res.send(result);
       } catch (error) {
         res.status(500).send({ message: error.message });
       }
-     
+
     })
 
 
@@ -372,7 +383,24 @@ async function run() {
     // get featured foods items
     app.get("/featuredFoods", async (req, res) => {
       try {
-        const cursor = foodsCollection.find({}).limit(6).sort({ quantity: -1 });
+
+        const cursor = foodsCollection.aggregate([
+          {
+            $match: { status: 'available' }
+          },
+          {
+            $addFields: {
+              quantityNumber: { $toInt: "$quantity" }
+            }
+          },
+          {
+            $sort: { quantityNumber: -1 }
+          },
+          {
+            $limit: 6
+          }
+        ])
+        // const cursor = foodsCollection.find({}).limit(6).sort({ quantity: -1 });
         const result = await cursor.toArray();
         res.send(result);
       } catch (error) {
@@ -380,55 +408,6 @@ async function run() {
       }
     });
 
-
-    // ========my food requests=========
-
-    // my food requests
-    app.get("/myFoodRequests", async (req, res) => {
-      const query = req.query;
-      console.log(query)
-      try {
-
-        if (query.email) {
-          const cursor = myFoodRequestsCollection.find({ requesterEmail: query.email });
-          const result = await cursor.toArray();
-          res.send(result);
-          return;
-        }
-
-        const cursor = myFoodRequestsCollection.find({});
-        const result = await cursor.toArray();
-        res.send(result);
-      } catch (error) {
-        res.status(500).send({ message: error.message });
-      }
-    })
-
-    // Create a new my food request item
-    app.post("/myFoodRequests", async (req, res) => {
-      const myFoodRequest = req.body;
-      // foodID', 'foodName', 'foodImgURL', 'donatorName', 'donatorEmail', 'userEmail', 'requestedDate', 'location', 'expireDate', 'donationMoney', 'userMessge', 'userMessage
-      const newMyFoodRequest = {
-        foodID: myFoodRequest.foodID || '',
-        foodName: myFoodRequest.foodName || '',
-        foodImgURL: myFoodRequest.foodImgURL || '',
-        donatorName: myFoodRequest.donatorName || '',
-        donatorEmail: myFoodRequest.donatorEmail || '',
-        userEmail: myFoodRequest.userEmail || '',
-        requestedDate: new Date(),
-        location: myFoodRequest.location || '',
-        expireDate: myFoodRequest.expireDate || '',
-        donationMoney: myFoodRequest.donationMoney || '',
-        userMessage: myFoodRequest.userMessage || '',
-      };
-
-      try {
-        const result = await myFoodRequestsCollection.insertOne(newMyFoodRequest);
-        res.send(result);
-      } catch (error) {
-        res.status(500).send({ message: error.message });
-      }
-    });
 
 
     console.log(

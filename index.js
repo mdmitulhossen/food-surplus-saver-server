@@ -16,6 +16,7 @@ app.use(cors({
     'http://localhost:5173',
     'https://food-surplus-saver.web.app'
   ],
+  "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   credentials: true,
 }));
 app.use(cookieParser());
@@ -61,17 +62,23 @@ async function run() {
     // auth
     app.post('/jwt', async (req, res) => {
       const user = req.body;
+      console.log(user)
       const token = jwt.sign(user, process.env.SECRET_KEY, { expiresIn: '1h' });
 
       res
-        .cookie('token', token, { httpOnly: true, secure: false })
+        .cookie('token', token, { httpOnly: true, secure: true, sameSite: 'none' })
         .send({ success: true })
     })
 
     // =======foods========
     //  Create a new food item
-    app.post("/foods", async (req, res) => {
+    app.post("/foods", verfiyToken, async (req, res) => {
       const food = req.body;
+      const tokenUser = req.user;
+      if (tokenUser.email !== food.donatorEmail) {
+        res.status(401).send('Access Denied');
+        return;
+      }
       const newFood = {
         foodName: food.foodName || '',
         foodImgURL: food.foodImgURL || '',
@@ -226,6 +233,7 @@ async function run() {
       }
     });
 
+
     // =====sort and Search food items==========
 
     app.get("/foods/sort/:sortMethod", async (req, res) => {
@@ -283,8 +291,9 @@ async function run() {
     });
 
     // get all foodRequests items
-    app.get("/foodRequests", async (req, res) => {
+    app.get("/foodRequests", verfiyToken, async (req, res) => {
       const query = req.query;
+      const tokenUser = req.user;
       try {
         if (query.id) {
           const cursor = foodRequestsCollection.find({ foodID: new ObjectId(query.id) });
@@ -293,7 +302,14 @@ async function run() {
           return;
         }
         else if (query.email) {
+          if (tokenUser.email !== query.email) {
+            res.status(401).send('Access Denied');
+            return;
+          }
           const cursor = foodRequestsCollection.aggregate([
+            {
+              $match: { requesterEmail: query.email }
+            },
             {
               $lookup: {
                 from: 'foods',

@@ -96,7 +96,7 @@ async function run() {
     // get all foods items
     app.get("/foods", async (req, res) => {
       const query = req.query;
-      console.log(query)
+      // console.log(query)
       try {
 
         if(query.email){
@@ -105,9 +105,25 @@ async function run() {
           res.send(result);
           return;
         }
-        
+
         const cursor = foodsCollection.find({});
         const result = await cursor.toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+    });
+
+    // get a single food item
+    app.get("/foods/:id", async (req, res) => {
+      const id = req.params.id;
+      if (id.length < 24) {
+        res.status(400).send("Invalid ID");
+        return;
+      }
+      try {
+        const query = { _id: new ObjectId(id) };
+        const result = await foodsCollection.findOne(query);
         res.send(result);
       } catch (error) {
         res.status(500).send({ message: error.message });
@@ -218,10 +234,20 @@ async function run() {
 
     // get all foodRequests items
     app.get("/foodRequests", async (req, res) => {
+      const queryId = req.query.id;
       try {
-        const cursor = foodRequestsCollection.find({});
-        const result = await cursor.toArray();
-        res.send(result);
+        if(queryId){
+          const cursor = foodRequestsCollection.find({foodID: queryId});
+          const result = await cursor.toArray();
+          res.send(result);
+          return;
+        }
+        else{
+          res.status(400).send("Invalid ID");
+        }
+        // const cursor = foodRequestsCollection.find({});
+        // const result = await cursor.toArray();
+        // res.send(result);
       } catch (error) {
         res.status(500).send({ message: error.message });
       }
